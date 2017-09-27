@@ -195,7 +195,6 @@ def print_pie(mytype):
 
 
     plt.suptitle("Proportion of different " + class_arr[mytype] + " in non-smoking popuplation")
-
     plt.show()
 
 
@@ -205,15 +204,16 @@ def print_pie(mytype):
 # Main:
 
 if __name__=='__main__':
-    # In[142]:
 
+    if len(sys.argv) < 2:
+        print ('no argument')
+        sys.exit()
+    myargv_tmp = sys.argv
+    myargv_tmp.pop(0)
+    myargv = myargv_tmp
+    # print(myargv)
 
     ssl._create_default_https_context = ssl._create_unverified_context
-
-
-    # In[143]:
-
-
     url = "https://ceiba.ntu.edu.tw/course/481ea4/hw1_data.csv"
     # ref: http://www.gegugu.com/2016/12/28/23379.html
     resp = urllib.request.urlopen(url)
@@ -224,11 +224,7 @@ if __name__=='__main__':
     a_level = ["20000 and below", "20001-40000", "40001 and above"]
     w_level = ["indoor", "outdoor", "unemployed"]
     type_dict = dict({"l":"Line Chart", "b":"Bar Chart", "p":"Pie Chart"})
-
-
     # In[144]:
-
-
     dat = dat_raw.split("\n")
     myclass = dat[0].split(",")
     arr = []
@@ -238,9 +234,19 @@ if __name__=='__main__':
         tmp2 = [float(i) for i in tmp]
         arr.append(tmp2)
 
-
     # In[145]:
-
-    print_bar(0)
-    print_line(0)
-    print_pie(0)
+    idx = 0
+    current_argv = ""
+    while idx < len(myargv):
+        current_argv = myargv[idx]
+        if current_argv == "-El": print_line(0)
+        elif current_argv == "-Eb": print_bar(0)
+        elif current_argv == "-Ep": print_pie(0)
+        elif current_argv == "-Al": print_line(1)
+        elif current_argv == "-Ab": print_bar(1)
+        elif current_argv == "-Ap": print_pie(1)
+        elif current_argv == "-Wl": print_line(2)
+        elif current_argv == "-Wb": print_bar(2)
+        elif current_argv == "-Wp": print_pie(2)
+        else: print("INVALID ARGV: " + current_argv)
+        idx += 1
