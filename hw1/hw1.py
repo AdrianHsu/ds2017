@@ -192,7 +192,7 @@ def print_pie(mytype):
     ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
 
 
-    plt.suptitle("Proportion of different " + class_arr[mytype] + " in non-smoking popuplation")
+    plt.suptitle("Proportion of different " + class_arr[mytype] + " in smoking popuplation")
     plt.show()
 
 
