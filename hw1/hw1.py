@@ -7,44 +7,6 @@
 import sys, ssl, urllib
 import matplotlib.pyplot as plt
 
-
-# In[142]:
-
-
-ssl._create_default_https_context = ssl._create_unverified_context
-
-
-# In[143]:
-
-
-url = "https://ceiba.ntu.edu.tw/course/481ea4/hw1_data.csv"
-# ref: http://www.gegugu.com/2016/12/28/23379.html
-resp = urllib.request.urlopen(url)
-resp_byte = resp.read()
-dat_raw = resp_byte.decode("utf-8")
-class_arr = ["Education Level", "Average Monthly Income","Working Environment"]
-e_level = ["elementary school and below", "junior high", "senior high", "university", "graduate school and above"]
-a_level = ["20000 and below", "20001-40000", "40001 and above"]
-w_level = ["indoor", "outdoor", "unemployed"]
-type_dict = dict({"l":"Line Chart", "b":"Bar Chart", "p":"Pie Chart"})
-
-
-# In[144]:
-
-
-dat = dat_raw.split("\n")
-myclass = dat[0].split(",")
-arr = []
-for i in [2, 3, 4, 5, 6, 8, 9, 10, 12, 13, 14]:
-    tmp = dat[i].split(",")
-    tmp.pop(0)
-    tmp2 = [float(i) for i in tmp]
-    arr.append(tmp2)
-
-
-# In[145]:
-
-
 def print_bar(mytype):
 
     n_groups = 5
@@ -238,7 +200,47 @@ def print_pie(mytype):
 
 
 # In[150]:
-
-
 # print_pie(2)
 
+# Main:
+
+if __name__=='__main__':
+    # In[142]:
+
+
+    ssl._create_default_https_context = ssl._create_unverified_context
+
+
+    # In[143]:
+
+
+    url = "https://ceiba.ntu.edu.tw/course/481ea4/hw1_data.csv"
+    # ref: http://www.gegugu.com/2016/12/28/23379.html
+    resp = urllib.request.urlopen(url)
+    resp_byte = resp.read()
+    dat_raw = resp_byte.decode("utf-8")
+    class_arr = ["Education Level", "Average Monthly Income","Working Environment"]
+    e_level = ["elementary school and below", "junior high", "senior high", "university", "graduate school and above"]
+    a_level = ["20000 and below", "20001-40000", "40001 and above"]
+    w_level = ["indoor", "outdoor", "unemployed"]
+    type_dict = dict({"l":"Line Chart", "b":"Bar Chart", "p":"Pie Chart"})
+
+
+    # In[144]:
+
+
+    dat = dat_raw.split("\n")
+    myclass = dat[0].split(",")
+    arr = []
+    for i in [2, 3, 4, 5, 6, 8, 9, 10, 12, 13, 14]:
+        tmp = dat[i].split(",")
+        tmp.pop(0)
+        tmp2 = [float(i) for i in tmp]
+        arr.append(tmp2)
+
+
+    # In[145]:
+
+    print_bar(0)
+    print_line(0)
+    print_pie(0)
