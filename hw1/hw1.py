@@ -2,8 +2,6 @@
 # coding: utf-8
 
 # In[141]:
-
-
 import sys, ssl, urllib
 import matplotlib.pyplot as plt
 
