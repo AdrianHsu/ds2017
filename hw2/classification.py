@@ -35,7 +35,7 @@ def dctModel(train_X, train_y):
 def svcModel(train_X, train_y):
     
     svc = sklearn.svm.SVC(
-        C=1.0, 
+        C=1, 
         kernel='rbf',
         degree=3,
         gamma='auto',
@@ -63,17 +63,17 @@ if __name__=='__main__':
     myargv_tmp.pop(0)
     myargv = myargv_tmp
 
-    # train = pd.read_csv('example_train.csv', header=None)
-    # test = pd.read_csv('example_test.csv', header=None)
-    # train_X = train.iloc[:, :-1]
-    # train_y = train.iloc[:,-1]
-    # test_X = test.iloc[:, :-1] #test
-    ## test_y = #test.iloc[:,-1]
+    train = pd.read_csv('example_train.csv', header=None)
+    test = pd.read_csv('example_test.csv', header=None)
+    train_X = train.iloc[:, :-1]
+    train_y = train.iloc[:,-1]
+    test_X = test #test.iloc[:, :-1] #test
+    # test_y = #test.iloc[:,-1]
 
-    dat = pd.read_csv('spambase.csv', header=None)
-    X = dat.iloc[:, :-1]
-    y = dat.iloc[:,-1]
-    train_X, test_X, train_y, test_y = sklearn.model_selection.train_test_split(X, y, test_size = 0.1308, shuffle=True)
+    #dat = pd.read_csv('spambase.csv', header=None)
+    #X = dat.iloc[:, :-1]
+    #y = dat.iloc[:,-1]
+    #train_X, test_X, train_y, test_y = sklearn.model_selection.train_test_split(X, y, test_size = 0.1308, shuffle=True)
 
     scaler = preprocessing.StandardScaler().fit(train_X)
     train_X = scaler.transform(train_X)
@@ -91,9 +91,9 @@ if __name__=='__main__':
     loss = -cross_val_score(model, train_X, train_y, cv=5, scoring='neg_mean_squared_error')
     print("Accuracy: %0.2f (+/- %0.2f)" % (loss.mean(), loss.std() * 2))
 
-    print(model.score(test_X, test_y))
-    loss = -cross_val_score(model, test_X, test_y, cv=5, scoring='neg_mean_squared_error')
-    print("Accuracy: %0.2f (+/- %0.2f)" % (loss.mean(), loss.std() * 2))
+    #print(model.score(test_X, test_y))
+    #loss = -cross_val_score(model, test_X, test_y, cv=5, scoring='neg_mean_squared_error')
+    #print("Accuracy: %0.2f (+/- %0.2f)" % (loss.mean(), loss.std() * 2))
     predicted = model.predict(test_X)
     ans = []
     for i in range(len(predicted)):
