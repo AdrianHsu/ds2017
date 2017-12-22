@@ -220,10 +220,13 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 		}
 		delete children;
 	}
-	/*for (auto item : eClass->items){
+	for (auto item : eClass->items){
 		for (auto i : eClass->parents) *out << index[i] << " ";
 		*out << index[item.id] << "(" << item.support << ")" << endl;
-	}*/
+		// added by AH
+        for (auto i : eClass->parents) cout << index[i] << " ";
+		cout << index[item.id] << "(" << item.support << ")" << endl;
+	}
 }
 int NumberOfSetBits(int i)
 {
