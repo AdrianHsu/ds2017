@@ -213,7 +213,8 @@ __global__ static void eclat(int *a, int *b, int* temp, int *result, int length)
 
 void mineGPU(EClass *eClass, int minSup, int* index, int length){
 	// TODO: fill this function to use gpu to accelerate the process of eclat
-    int size = eClass->items.size(); //7
+    int size = eClass->items.size(); //7,2,1
+
 	for (int i = 0; i < size; i++){
 		EClass* children = new EClass();
 		children->parents = eClass->parents;
@@ -233,12 +234,13 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
                 cudaMemcpyHostToDevice);
             cudaMemcpy(gpuB, b, SIZE_OF_INT*length,
                 cudaMemcpyHostToDevice);
+            cudaMemset(support, 0, sizeof(int));
+
 		    eclat<<<1, 1, 0>>>(gpuA, gpuB, gpuTemp, support, length);
             int sup = 0;
-            cudaMemcpy(&sup, support, SIZE_OF_INT, cudaMemcpyDeviceToHost);
+            cudaMemcpy(&sup, support, sizeof(int), cudaMemcpyDeviceToHost);
 	        int* temp = (int*) malloc(SIZE_OF_INT*length);
             cudaMemcpy(temp, gpuTemp, SIZE_OF_INT*length, cudaMemcpyDeviceToHost);
-            cout << "g:" << sup << endl;
             cudaFree(gpuA);
             cudaFree(gpuB);
             cudaFree(gpuTemp);
@@ -281,8 +283,7 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 				temp[k] = a[k] & b[k];
 				support += NumberOfSetBits(temp[k]);
 			}
-            cout << "c:" << support << endl;
-			if (support >= minSup){
+            if (support >= minSup){
 				children->items.push_back(Item(eClass->items[j].id, temp, support));
 			}
 			else delete[] temp;
