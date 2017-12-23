@@ -91,7 +91,13 @@ int main(int argc, char** argv){
 	if ((inputFile = fopen(inFileName, "r")) == 0)
 		ErrorHandler(ERROR_INFILE);
 	ReadInput(inputFile, &tNumbers, &iNumbers, index, supPer, root);
-	int length = tNumbers + SIZE_OF_INT - (tNumbers%SIZE_OF_INT);
+	//for(int i = 0; i < (*root).items.size(); i ++) {
+    //    cout << index[i] << endl;
+    //    cout << (*root).items[i].db << endl;
+    //    cout << *((*root).items[i].db) << endl;
+    //}
+    
+    int length = tNumbers + SIZE_OF_INT - (tNumbers%SIZE_OF_INT);
 	length /= SIZE_OF_INT;
 	int minSup = tNumbers * supPer + 1;
 	if (gpu){
@@ -133,7 +139,9 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 	// read db and convert horizontal database to vertical database and store in the vector of the item in the map
 	while ((c = getc(inputFile)) != EOF){
 		if (c == ' ' || c == ',' || c == '\n'){
-			if (mapIndex.find(temp) == mapIndex.end()){
+			//cout << temp << endl;
+            //cout << *tNum << endl;
+            if (mapIndex.find(temp) == mapIndex.end()){
 				mapIndex[temp] = ItemDetail(0, temp);
 				mapIndex[temp].tid.push_back(*tNum);
 			}
@@ -159,19 +167,19 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 	}
 
 	// convert the tidset into bit vector and store in db, build index
-	int bitLength = (*tNum) + SIZE_OF_INT - (*tNum) % SIZE_OF_INT;
-	temp = 0;
+	int bitLength = (*tNum) + SIZE_OF_INT - (*tNum) % SIZE_OF_INT; // 32? 88192?
+    temp = 0;
 	index = new int[mapIndex.size()];
 	for (map<int, ItemDetail>::iterator it = mapIndex.begin(); it != mapIndex.end(); ++it){
 		it->second.id = temp;
-		index[temp] = it->second.realId;
+        index[temp] = it->second.realId;
 		//int * bitVector = (db + temp * bitLength / SIZE_OF_INT);
 		int* bitVector = new int[bitLength / SIZE_OF_INT];
 		memset(bitVector, 0, sizeof(int)* bitLength / SIZE_OF_INT);
 		for (int i = it->second.tid.size() - 1; i >= 0; i--){
 			bitVector[it->second.tid[i] / SIZE_OF_INT] |= Bit32Table[it->second.tid[i] % SIZE_OF_INT];
 		}
-		(*root).items.push_back(Item(temp, bitVector, it->second.tid.size()));
+        (*root).items.push_back(Item(temp, bitVector, it->second.tid.size()));
 		temp++;
 	}
 	*iNum = mapIndex.size();
@@ -194,13 +202,17 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 
 void mineCPU(EClass *eClass, int minSup, int* index, int length){
 	int size = eClass->items.size();
-	
+	//cout << "len:"<< length << endl;
+
 	for (int i = 0; i < size; i++){
 		EClass* children = new EClass();
 		children->parents = eClass->parents;
+        //cout << "?" << eClass->items[i].id << endl;
 		children->parents.push_back(eClass->items[i].id);
 		int *a = eClass->items[i].db;
-		for (int j = i + 1; j < size; j++){
+        //cout << "!" << *a << endl;
+		
+        for (int j = i + 1; j < size; j++){
 			int * temp = new int[length];
 			int *b = eClass->items[j].db;
 			int support = 0;
@@ -224,8 +236,8 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 		for (auto i : eClass->parents) *out << index[i] << " ";
 		*out << index[item.id] << "(" << item.support << ")" << endl;
 		// added by AH
-        for (auto i : eClass->parents) cout << index[i] << " ";
-		cout << index[item.id] << "(" << item.support << ")" << endl;
+        //for (auto i : eClass->parents) cout << index[i] << " ";
+		//cout << index[item.id] << "(" << item.support << ")" << endl;
 	}
 }
 int NumberOfSetBits(int i)
