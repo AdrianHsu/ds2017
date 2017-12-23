@@ -91,13 +91,7 @@ int main(int argc, char** argv){
 	if ((inputFile = fopen(inFileName, "r")) == 0)
 		ErrorHandler(ERROR_INFILE);
 	ReadInput(inputFile, &tNumbers, &iNumbers, index, supPer, root);
-	//for(int i = 0; i < (*root).items.size(); i ++) {
-    //    cout << index[i] << endl;
-    //    cout << (*root).items[i].db << endl;
-    //    cout << *((*root).items[i].db) << endl;
-    //}
-
-    int length = tNumbers + SIZE_OF_INT - (tNumbers%SIZE_OF_INT);
+	int length = tNumbers + SIZE_OF_INT - (tNumbers%SIZE_OF_INT);
 	length /= SIZE_OF_INT;
 	int minSup = tNumbers * supPer + 1;
 	if (gpu){
@@ -139,9 +133,7 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 	// read db and convert horizontal database to vertical database and store in the vector of the item in the map
 	while ((c = getc(inputFile)) != EOF){
 		if (c == ' ' || c == ',' || c == '\n'){
-			//cout << temp << endl;
-            //cout << *tNum << endl;
-            if (mapIndex.find(temp) == mapIndex.end()){
+			if (mapIndex.find(temp) == mapIndex.end()){
 				mapIndex[temp] = ItemDetail(0, temp);
 				mapIndex[temp].tid.push_back(*tNum);
 			}
@@ -167,20 +159,20 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 	}
 
 	// convert the tidset into bit vector and store in db, build index
-	int bitLength = (*tNum) + SIZE_OF_INT - (*tNum) % SIZE_OF_INT; // 32? 88192?
-    temp = 0;
+	int bitLength = (*tNum) + SIZE_OF_INT - (*tNum) % SIZE_OF_INT;
+	temp = 0;
 	index = new int[mapIndex.size()];
 	for (map<int, ItemDetail>::iterator it = mapIndex.begin(); it != mapIndex.end(); ++it){
 		it->second.id = temp;
-        index[temp] = it->second.realId;
+		index[temp] = it->second.realId;
 		//int * bitVector = (db + temp * bitLength / SIZE_OF_INT);
 		int* bitVector = new int[bitLength / SIZE_OF_INT];
 		memset(bitVector, 0, sizeof(int)* bitLength / SIZE_OF_INT);
 		for (int i = it->second.tid.size() - 1; i >= 0; i--){
 			bitVector[it->second.tid[i] / SIZE_OF_INT] |= Bit32Table[it->second.tid[i] % SIZE_OF_INT];
 		}
-        (*root).items.push_back(Item(temp, bitVector, it->second.tid.size()));
-        temp++;
+		(*root).items.push_back(Item(temp, bitVector, it->second.tid.size()));
+		temp++;
 	}
 	*iNum = mapIndex.size();
 }
@@ -196,33 +188,31 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 *
 */
 __global__ static void eclat(int *a, int *b, int* temp, int *result, int length) {
-    
+
     int support = 0;
     for (int k = 0; k < length; k++){
         temp[k] = a[k] & b[k];
         int i = temp[k];
-        
         i = i - ((i >> 1) & 0x55555555);
         i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
         support += (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
-        
         //support += NumberOfSetBits(temp[k]);
     }
     *result = support;
 }
 
 void mineGPU(EClass *eClass, int minSup, int* index, int length){
-	// TODO: fill this function to use gpu to accelerate the process of eclat
+    // TODO: fill this function to use gpu to accelerate the process of eclat
     int size = eClass->items.size(); //7,2,1
 
-	for (int i = 0; i < size; i++){
-		EClass* children = new EClass();
-		children->parents = eClass->parents;
-		children->parents.push_back(eClass->items[i].id);
-		int *a = (int *)malloc(SIZE_OF_INT*length);
+    for (int i = 0; i < size; i++){
+        EClass* children = new EClass();
+        children->parents = eClass->parents;
+        children->parents.push_back(eClass->items[i].id);
+        int *a = (int *)malloc(SIZE_OF_INT*length);
         a = eClass->items[i].db;
         for (int j = i + 1; j < size; j++){
-			int* b = (int *)malloc(SIZE_OF_INT*length);
+            int* b = (int *)malloc(SIZE_OF_INT*length);
             b = eClass->items[j].db;
             int* gpuA, *gpuB, *gpuTemp, *support;
 
@@ -231,51 +221,51 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
             cudaMalloc((void**) &gpuTemp, SIZE_OF_INT*length);
             cudaMalloc((void**) &support, SIZE_OF_INT);
             cudaMemcpy(gpuA, a, SIZE_OF_INT*length,
-                cudaMemcpyHostToDevice);
+                    cudaMemcpyHostToDevice);
             cudaMemcpy(gpuB, b, SIZE_OF_INT*length,
-                cudaMemcpyHostToDevice);
+                    cudaMemcpyHostToDevice);
             cudaMemset(support, 0, sizeof(int));
 
-		    eclat<<<1, 1, 0>>>(gpuA, gpuB, gpuTemp, support, length);
+            eclat<<<1, 1, 0>>>(gpuA, gpuB, gpuTemp, support, length);
             int sup = 0;
             cudaMemcpy(&sup, support, sizeof(int), cudaMemcpyDeviceToHost);
-	        int* temp = (int*) malloc(SIZE_OF_INT*length);
+            int* temp = (int*) malloc(SIZE_OF_INT*length);
             cudaMemcpy(temp, gpuTemp, SIZE_OF_INT*length, cudaMemcpyDeviceToHost);
             cudaFree(gpuA);
             cudaFree(gpuB);
             cudaFree(gpuTemp);
             cudaFree(support);
             if (sup >= minSup){
-				children->items.push_back(Item(eClass->items[j].id, temp, sup));
-			}
-			else {
+                children->items.push_back(Item(eClass->items[j].id, temp, sup));
+            }
+            else {
                 delete [] temp;
             }
-		}
-		if (children->items.size() != 0)
-			mineGPU(children, minSup, index, length);
-		for (auto item : children->items){
-			delete[] item.db;
-		}
+        }
+        if (children->items.size() != 0)
+            mineGPU(children, minSup, index, length);
+        for (auto item : children->items){
+            delete[] item.db;
+        }
     }
-	for (auto item : eClass->items){
-		for (auto i : eClass->parents) *out << index[i] << " ";
-		*out << index[item.id] << "(" << item.support << ")" << endl;
-		// added by AH
-        //for (auto i : eClass->parents) cout << index[i] << " ";
-		//cout << index[item.id] << "(" << item.support << ")" << endl;
-	}
+    for (auto item : eClass->items){
+        for (auto i : eClass->parents) *out << index[i] << " ";
+        *out << index[item.id] << "(" << item.support << ")" << endl;
+        // added by AH
+        for (auto i : eClass->parents) cout << index[i] << " ";
+        cout << index[item.id] << "(" << item.support << ")" << endl;
+    }
 }
 
 void mineCPU(EClass *eClass, int minSup, int* index, int length){
 	int size = eClass->items.size();
-
+	
 	for (int i = 0; i < size; i++){
 		EClass* children = new EClass();
 		children->parents = eClass->parents;
 		children->parents.push_back(eClass->items[i].id);
 		int *a = eClass->items[i].db;
-        for (int j = i + 1; j < size; j++){
+		for (int j = i + 1; j < size; j++){
 			int * temp = new int[length];
 			int *b = eClass->items[j].db;
 			int support = 0;
@@ -283,7 +273,7 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 				temp[k] = a[k] & b[k];
 				support += NumberOfSetBits(temp[k]);
 			}
-            if (support >= minSup){
+			if (support >= minSup){
 				children->items.push_back(Item(eClass->items[j].id, temp, support));
 			}
 			else delete[] temp;
@@ -295,13 +285,10 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 		}
 		delete children;
 	}
-	for (auto item : eClass->items){
-		//for (auto i : eClass->parents) *out << index[i] << " ";
-		//*out << index[item.id] << "(" << item.support << ")" << endl;
-		// added by AH
-        //for (auto i : eClass->parents) cout << index[i] << " ";
-		//cout << index[item.id] << "(" << item.support << ")" << endl;
-	}
+	/*for (auto item : eClass->items){
+		for (auto i : eClass->parents) *out << index[i] << " ";
+		*out << index[item.id] << "(" << item.support << ")" << endl;
+	}*/
 }
 int NumberOfSetBits(int i)
 {
