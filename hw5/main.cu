@@ -96,7 +96,7 @@ int main(int argc, char** argv){
     //    cout << (*root).items[i].db << endl;
     //    cout << *((*root).items[i].db) << endl;
     //}
-    
+
     int length = tNumbers + SIZE_OF_INT - (tNumbers%SIZE_OF_INT);
 	length /= SIZE_OF_INT;
 	int minSup = tNumbers * supPer + 1;
@@ -180,7 +180,7 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 			bitVector[it->second.tid[i] / SIZE_OF_INT] |= Bit32Table[it->second.tid[i] % SIZE_OF_INT];
 		}
         (*root).items.push_back(Item(temp, bitVector, it->second.tid.size()));
-		temp++;
+        temp++;
 	}
 	*iNum = mapIndex.size();
 }
@@ -195,23 +195,71 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 *	length: the length of tidset in integer	
 *
 */
+__global__ static void eclat(int *a, int *b, int* temp, int *result, int length) {
+    
+    int support = 0;
+    for (int k = 0; k < length; k++){
+        temp[k] = a[k] & b[k];
+        int i = temp[k]; 
+    
+        i = i - ((i >> 1) & 0x55555555);
+        i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+        support += (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+        
+        //support += NumberOfSetBits(temp[k]);
+    }
+    *result = support;
+}
 
 void mineGPU(EClass *eClass, int minSup, int* index, int length){
 	// TODO: fill this function to use gpu to accelerate the process of eclat
+    int size = eClass->items.size(); //7
+	for (int i = 0; i < size; i++){
+		EClass* children = new EClass();
+		children->parents = eClass->parents;
+		children->parents.push_back(eClass->items[i].id);
+		int *a = eClass->items[i].db;
+        for (int j = i + 1; j < size; j++){
+			int* b = eClass->items[j].db;
+            int* gpuA, *gpuB, *gpuTemp, *support;
+
+            cudaMalloc((void**) &gpuA, sizeof(int)*length);
+            cudaMalloc((void**) &gpuB, sizeof(int)*length);
+            cudaMalloc((void**) &gpuTemp, sizeof(int)*length);
+            cudaMalloc((void**) &support, sizeof(int));
+           
+
+            cudaMemcpy(gpuA, a, sizeof(int)*length,
+                cudaMemcpyHostToDevice);
+            cudaMemcpy(gpuB, b, sizeof(int)*length,
+                cudaMemcpyHostToDevice);
+
+		    eclat<<<1, 1, 0>>>(gpuA, gpuB, gpuTemp, support, length);
+            int sup;
+            cudaMemcpy(&sup, support, sizeof(int), cudaMemcpyDeviceToHost);
+	        int* temp = new int[length];
+            cudaMemcpy(&temp, gpuTemp, sizeof(int)*length, cudaMemcpyDeviceToHost);
+            if (sup >= minSup){
+				children->items.push_back(Item(eClass->items[j].id, temp, sup));
+			}
+			else delete[] temp;
+		}
+		if (children->items.size() != 0)
+			mineGPU(children, minSup, index, length);
+		for (auto item : children->items){
+			delete[] item.db;
+		}
+    }
 }
 
 void mineCPU(EClass *eClass, int minSup, int* index, int length){
 	int size = eClass->items.size();
-	//cout << "len:"<< length << endl;
 
 	for (int i = 0; i < size; i++){
 		EClass* children = new EClass();
 		children->parents = eClass->parents;
-        //cout << "?" << eClass->items[i].id << endl;
 		children->parents.push_back(eClass->items[i].id);
 		int *a = eClass->items[i].db;
-        //cout << "!" << *a << endl;
-		
         for (int j = i + 1; j < size; j++){
 			int * temp = new int[length];
 			int *b = eClass->items[j].db;
