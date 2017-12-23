@@ -204,7 +204,7 @@ __global__ static void eclat(int *a, int *b, int* temp, int *result, int length)
         
         i = i - ((i >> 1) & 0x55555555);
         i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
-        support += ((((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24);
+        support += (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
         
         //support += NumberOfSetBits(temp[k]);
     }
@@ -233,7 +233,6 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
                 cudaMemcpyHostToDevice);
             cudaMemcpy(gpuB, b, SIZE_OF_INT*length,
                 cudaMemcpyHostToDevice);
-
 		    eclat<<<1, 1, 0>>>(gpuA, gpuB, gpuTemp, support, length);
             int sup = 0;
             cudaMemcpy(&sup, support, SIZE_OF_INT, cudaMemcpyDeviceToHost);
