@@ -204,7 +204,7 @@ __global__ static void eclat(int *a, int *b, int* temp, int *result, int length)
     
         i = i - ((i >> 1) & 0x55555555);
         i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
-        support += (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+        support += ((((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24);
         
         //support += NumberOfSetBits(temp[k]);
     }
@@ -223,26 +223,35 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 			int* b = eClass->items[j].db;
             int* gpuA, *gpuB, *gpuTemp, *support;
 
-            cudaMalloc((void**) &gpuA, sizeof(int)*length);
-            cudaMalloc((void**) &gpuB, sizeof(int)*length);
-            cudaMalloc((void**) &gpuTemp, sizeof(int)*length);
-            cudaMalloc((void**) &support, sizeof(int));
-           
-
-            cudaMemcpy(gpuA, a, sizeof(int)*length,
+            cudaMalloc((void**) &gpuA, SIZE_OF_INT*length);
+            cudaMalloc((void**) &gpuB, SIZE_OF_INT*length);
+            cudaMalloc((void**) &gpuTemp, SIZE_OF_INT*length);
+            cudaMalloc((void**) &support, SIZE_OF_INT);
+            cudaMemcpy(gpuA, &a, SIZE_OF_INT*length,
                 cudaMemcpyHostToDevice);
-            cudaMemcpy(gpuB, b, sizeof(int)*length,
+            cudaMemcpy(gpuB, &b, SIZE_OF_INT*length,
                 cudaMemcpyHostToDevice);
+            //int *aa = 0; 
+            //cudaMemcpy(&aa, gpuA, SIZE_OF_INT*length, cudaMemcpyDeviceToHost);
+            //cout << *a << endl;
+            //cout << *aa << endl;
 
 		    eclat<<<1, 1, 0>>>(gpuA, gpuB, gpuTemp, support, length);
             int sup;
-            cudaMemcpy(&sup, support, sizeof(int), cudaMemcpyDeviceToHost);
+            cudaMemcpy(&sup, support, SIZE_OF_INT, cudaMemcpyDeviceToHost);
 	        int* temp = new int[length];
-            cudaMemcpy(&temp, gpuTemp, sizeof(int)*length, cudaMemcpyDeviceToHost);
+            cudaMemcpy(&temp, gpuTemp, SIZE_OF_INT*length, cudaMemcpyDeviceToHost);
+            cout << sup << endl;
             if (sup >= minSup){
 				children->items.push_back(Item(eClass->items[j].id, temp, sup));
 			}
-			else delete[] temp;
+			else {
+                delete[] temp;
+            }
+            cudaFree(gpuA);
+            cudaFree(gpuB);
+            cudaFree(gpuTemp);
+            cudaFree(support);
 		}
 		if (children->items.size() != 0)
 			mineGPU(children, minSup, index, length);
@@ -250,6 +259,13 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 			delete[] item.db;
 		}
     }
+	for (auto item : eClass->items){
+		for (auto i : eClass->parents) *out << index[i] << " ";
+		*out << index[item.id] << "(" << item.support << ")" << endl;
+		// added by AH
+        //for (auto i : eClass->parents) cout << index[i] << " ";
+		//cout << index[item.id] << "(" << item.support << ")" << endl;
+	}
 }
 
 void mineCPU(EClass *eClass, int minSup, int* index, int length){
@@ -281,8 +297,8 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 		delete children;
 	}
 	for (auto item : eClass->items){
-		for (auto i : eClass->parents) *out << index[i] << " ";
-		*out << index[item.id] << "(" << item.support << ")" << endl;
+		//for (auto i : eClass->parents) *out << index[i] << " ";
+		//*out << index[item.id] << "(" << item.support << ")" << endl;
 		// added by AH
         //for (auto i : eClass->parents) cout << index[i] << " ";
 		//cout << index[item.id] << "(" << item.support << ")" << endl;
