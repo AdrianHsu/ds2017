@@ -235,21 +235,21 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
                 cudaMemcpyHostToDevice);
 
 		    eclat<<<1, 1, 0>>>(gpuA, gpuB, gpuTemp, support, length);
-            int sup;
+            int sup = 0;
             cudaMemcpy(&sup, support, SIZE_OF_INT, cudaMemcpyDeviceToHost);
-	        int* temp = new int[length];
-            cudaMemcpy(&temp, gpuTemp, SIZE_OF_INT*length, cudaMemcpyDeviceToHost);
-            //cout << "g:" << sup << endl;
-            if (sup >= minSup){
-				children->items.push_back(Item(eClass->items[j].id, temp, sup));
-			}
-			else {
-                delete[] temp;
-            }
+	        int* temp = (int*) malloc(SIZE_OF_INT*length);
+            cudaMemcpy(temp, gpuTemp, SIZE_OF_INT*length, cudaMemcpyDeviceToHost);
+            cout << "g:" << sup << endl;
             cudaFree(gpuA);
             cudaFree(gpuB);
             cudaFree(gpuTemp);
             cudaFree(support);
+            if (sup >= minSup){
+				children->items.push_back(Item(eClass->items[j].id, temp, sup));
+			}
+			else {
+                delete [] temp;
+            }
 		}
 		if (children->items.size() != 0)
 			mineGPU(children, minSup, index, length);
@@ -261,8 +261,8 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 		for (auto i : eClass->parents) *out << index[i] << " ";
 		*out << index[item.id] << "(" << item.support << ")" << endl;
 		// added by AH
-        for (auto i : eClass->parents) cout << index[i] << " ";
-		cout << index[item.id] << "(" << item.support << ")" << endl;
+        //for (auto i : eClass->parents) cout << index[i] << " ";
+		//cout << index[item.id] << "(" << item.support << ")" << endl;
 	}
 }
 
@@ -282,7 +282,7 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 				temp[k] = a[k] & b[k];
 				support += NumberOfSetBits(temp[k]);
 			}
-            //cout << "c:" << support << endl;
+            cout << "c:" << support << endl;
 			if (support >= minSup){
 				children->items.push_back(Item(eClass->items[j].id, temp, support));
 			}
@@ -299,8 +299,8 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 		//for (auto i : eClass->parents) *out << index[i] << " ";
 		//*out << index[item.id] << "(" << item.support << ")" << endl;
 		// added by AH
-        for (auto i : eClass->parents) cout << index[i] << " ";
-		cout << index[item.id] << "(" << item.support << ")" << endl;
+        //for (auto i : eClass->parents) cout << index[i] << " ";
+		//cout << index[item.id] << "(" << item.support << ")" << endl;
 	}
 }
 int NumberOfSetBits(int i)
