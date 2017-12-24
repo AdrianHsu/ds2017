@@ -187,17 +187,28 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 *	length: the length of tidset in integer	
 *
 */
-__global__ static void eclat(int *a, int *b, int* temp, int *result, int length) {
+__global__ static void eclat(int *a, int *b, int* temp, int *result, int length, int THREADNUM, int BLOCKNUM) {
 
-    int support = 0;
-    for (int k = 0; k < length; k++){
+    extern __shared__ int shared[];
+    const int tid = threadIdx.x;
+    const int bid = blockIdx.x;
+    
+    shared[tid] = 0;
+    int k;
+    for(k = bid * THREADNUM + tid; k < length; k += BLOCKNUM * THREADNUM){
         temp[k] = a[k] & b[k];
         int i = temp[k];
         i = i - ((i >> 1) & 0x55555555);
         i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
-        support += (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+        shared[tid] += (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
     }
-    *result = support;
+    __syncthreads();
+    if(tid == 0) {
+        for(k = 1; k < THREADNUM; k++) {
+            shared[0] += shared[k];
+        }
+        result[bid] = shared[0];
+    }
 }
 
 void mineGPU(EClass *eClass, int minSup, int* index, int length){
@@ -225,8 +236,8 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
                     cudaMemcpyHostToDevice);
             cudaMemset(support, 0, sizeof(int));
 
-            eclat<<<1, 1, 0>>>(gpuA, gpuB, gpuTemp, support, length);
-
+            eclat<<< BLOCKNUM, THREADNUM, SIZE_OF_INT*length>>>(gpuA, gpuB, gpuTemp, support, length, THREADNUM, BLOCKNUM);
+            cudaDeviceSynchronize();
             int sup = 0;
             cudaMemcpy(&sup, support, sizeof(int), cudaMemcpyDeviceToHost);
             int* temp = (int*) malloc(SIZE_OF_INT*length);
@@ -290,8 +301,8 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 		//for (auto i : eClass->parents) *out << index[i] << " ";
 		//*out << index[item.id] << "(" << item.support << ")" << endl;
         // added by AH
-        //for (auto i : eClass->parents) cout << index[i] << " ";
-        //cout << index[item.id] << "(" << item.support << ")" << endl;
+        for (auto i : eClass->parents) cout << index[i] << " ";
+        cout << index[item.id] << "(" << item.support << ")" << endl;
 	}
 }
 int NumberOfSetBits(int i)

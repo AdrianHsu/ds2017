@@ -1,2 +1,2 @@
 make
-./fim.out small.txt 0.1 out_small.txt
+./fim.out retail.txt 0.03 myoutput.txt
