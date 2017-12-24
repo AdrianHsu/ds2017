@@ -15,8 +15,8 @@
 
 #include "stdio.h"
 
-#define THREADNUM 256
-#define  BLOCKNUM 256
+#define THREADNUM 16
+#define  BLOCKNUM 16
 
 struct ItemDetail{
 	int id;
@@ -218,7 +218,7 @@ __global__ void eclat(int *a, int *b, int* temp, int *result, int length) {
     extern __shared__ int shared[];
     const unsigned int tid = threadIdx.x;
     const unsigned int bid = blockIdx.x;
-    printf("Hello from block %d, thread %d\n", blockIdx.x, threadIdx.x);
+    printf("Hello from block %d, thread %d\n", bid, tid);
 
     unsigned int k = bid*(BLOCKNUM*2) + tid; 
     const unsigned int gridSize = BLOCKNUM*2*gridDim.x; 
@@ -280,7 +280,7 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
                     cudaMemcpyHostToDevice);
             cudaMemset(support, 0, sizeof(int));
             
-            eclat<<< BLOCKNUM, THREADNUM>>>(gpuA, gpuB, gpuTemp, support, length);
+            eclat<<< BLOCKNUM, THREADNUM >>>(gpuA, gpuB, gpuTemp, support, length);
             cudaError_t err = cudaGetLastError(); 
             if (err != cudaSuccess) printf("Error: %s\n", cudaGetErrorString(err));
             cudaDeviceSynchronize();
