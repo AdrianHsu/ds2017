@@ -13,8 +13,8 @@
 #include "ResizableArray.h"
 #include "device_launch_parameters.h"
 
-int THREADNUM = 1024;
-int BLOCKNUM = 20;
+int THREADNUM = 16;
+int BLOCKNUM = 16;
 
 struct ItemDetail{
 	int id;
@@ -96,6 +96,30 @@ int main(int argc, char** argv){
 	int minSup = tNumbers * supPer + 1;
 	if (gpu){
 		clock_t tGPUMiningStart = clock();
+        // by AH
+        int count;
+
+        cudaGetDeviceCount(&count);
+        if(count == 0) {
+            cout << "There is no device." << endl;
+            return false;
+        }
+        int i;
+        for(i = 0; i < count; i++) {
+            cudaDeviceProp prop;
+            if(cudaGetDeviceProperties(&prop, i) == cudaSuccess) {
+                if(prop.major >= 1) {
+                    break;
+                }
+            }
+        }
+        if(i == count) {
+            cout << "There is no device supporting CUDA 1.x." << endl;
+            return false;
+        }
+        cudaSetDevice(i);
+        //
+        cout << "cudaSetDevice: " << i << endl;
 		mineGPU(root, minSup, index, length);
 		cout << "Time on GPU Mining: " << (double)(clock() - tGPUMiningStart) / CLOCKS_PER_SEC << endl;
 	}
@@ -190,25 +214,42 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 __global__ static void eclat(int *a, int *b, int* temp, int *result, int length, int THREADNUM, int BLOCKNUM) {
 
     extern __shared__ int shared[];
-    const int tid = threadIdx.x;
-    const int bid = blockIdx.x;
-    
+    const unsigned int tid = threadIdx.x;
+    const unsigned int bid = blockIdx.x;
+   
+    unsigned int k = bid*(BLOCKNUM*2) + tid; 
+    const unsigned int gridSize = BLOCKNUM*2*gridDim.x; 
     shared[tid] = 0;
-    int k;
-    for(k = bid * THREADNUM + tid; k < length; k += BLOCKNUM * THREADNUM){
+
+    while (k < length) { 
+        //sdata[tid] += g_idata[c] + g_idata[c+BLOCKNUM]; c += gridSize;
         temp[k] = a[k] & b[k];
         int i = temp[k];
         i = i - ((i >> 1) & 0x55555555);
         i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
         shared[tid] += (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+        
+        temp[k+BLOCKNUM] = a[k+BLOCKNUM] & b[k+BLOCKNUM];
+        i = temp[k+BLOCKNUM];
+        i = i - ((i >> 1) & 0x55555555);
+        i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+        shared[tid] += (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+        k += gridSize;
     }
     __syncthreads();
-    if(tid == 0) {
-        for(k = 1; k < THREADNUM; k++) {
-            shared[0] += shared[k];
-        }
-        result[bid] = shared[0];
+
+    if (BLOCKNUM >= 512) { if (tid < 256) { shared[tid] += shared[tid + 256]; } __syncthreads(); }
+    if (BLOCKNUM >= 256) { if (tid < 128) { shared[tid] += shared[tid + 128]; } __syncthreads(); }
+    if (BLOCKNUM >= 128) { if (tid < 64) { shared[tid] += shared[tid + 64]; } __syncthreads(); }
+    if (tid < 32) {
+        if (BLOCKNUM >= 64) shared[tid] += shared[tid + 32];
+        if (BLOCKNUM >= 32) shared[tid] += shared[tid + 16];
+        if (BLOCKNUM >= 16) shared[tid] += shared[tid + 8];
+        if (BLOCKNUM >= 8) shared[tid] += shared[tid + 4];
+        if (BLOCKNUM >= 4) shared[tid] += shared[tid + 2];
+        if (BLOCKNUM >= 2) shared[tid] += shared[tid + 1];
     }
+    if (tid == 0) result[bid] = shared[0];
 }
 
 void mineGPU(EClass *eClass, int minSup, int* index, int length){
@@ -229,20 +270,19 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
             cudaMalloc((void**) &gpuA, SIZE_OF_INT*length);
             cudaMalloc((void**) &gpuB, SIZE_OF_INT*length);
             cudaMalloc((void**) &gpuTemp, SIZE_OF_INT*length);
-            cudaMalloc((void**) &support, SIZE_OF_INT);
+            cudaMalloc((void**) &support, sizeof(int));
             cudaMemcpy(gpuA, a, SIZE_OF_INT*length,
                     cudaMemcpyHostToDevice);
             cudaMemcpy(gpuB, b, SIZE_OF_INT*length,
                     cudaMemcpyHostToDevice);
             cudaMemset(support, 0, sizeof(int));
 
-            eclat<<< BLOCKNUM, THREADNUM, SIZE_OF_INT*length>>>(gpuA, gpuB, gpuTemp, support, length, THREADNUM, BLOCKNUM);
-            cudaDeviceSynchronize();
+            eclat<<< BLOCKNUM, THREADNUM, SIZE_OF_INT*length >>>(gpuA, gpuB, gpuTemp, support, length, THREADNUM, BLOCKNUM);
+            //cudaDeviceSynchronize();
             int sup = 0;
             cudaMemcpy(&sup, support, sizeof(int), cudaMemcpyDeviceToHost);
             int* temp = (int*) malloc(SIZE_OF_INT*length);
             cudaMemcpy(temp, gpuTemp, SIZE_OF_INT*length, cudaMemcpyDeviceToHost);
-            
             cudaFree(gpuA);
             cudaFree(gpuB);
             cudaFree(gpuTemp);
