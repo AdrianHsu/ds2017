@@ -15,7 +15,7 @@
 
 #include "stdio.h"
 
-#define THREADNUM 16
+#define THREADNUM 256
 #define  BLOCKNUM 1
 
 struct ItemDetail{
@@ -213,28 +213,30 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 *	length: the length of tidset in integer	
 *
 */
+
+
 __global__ void eclat(int *a, int *b, int* temp, int *result, int length) {
 
-    extern __shared__ int shared[];
+    __shared__ int shared[THREADNUM];
     const unsigned int tid = threadIdx.x;
     const unsigned int bid = blockIdx.x;
-    printf("Hello from block %d, thread %d\n", bid, tid);
+    //printf("Hello from block %d, thread %d\n", bid, tid);
     // gridDim.x is blockNum
     // blockDim.x is threadNum
 
     shared[tid] = 0;
 
     for(int k = bid * THREADNUM + tid; k < length; k += BLOCKNUM*THREADNUM) {
-        //temp[k] = a[k] & b[k];
-        //int i = temp[k];
-        //i = i - ((i >> 1) & 0x55555555);
-        //i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
-        //shared[tid] += ((((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24);
-        printf("%d, %d, %d\n", k, tid, length);
+        temp[k] = a[k] & b[k];
+        int i = temp[k];
+        i = i - ((i >> 1) & 0x55555555);
+        i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+        shared[tid] += ((((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24);
+        //printf("%d, %d, %d\n", k, tid, length);
     }
-    printf("done, %d\n", tid);
+    //printf("done, %d\n", tid);
     __syncthreads();
-
+ 
 //    if (BLOCKNUM >= 512) { if (tid < 256) { shared[tid] += shared[tid + 256]; } __syncthreads(); }
 //    if (BLOCKNUM >= 256) { if (tid < 128) { shared[tid] += shared[tid + 128]; } __syncthreads(); }
 //    if (BLOCKNUM >= 128) { if (tid < 64) { shared[tid] += shared[tid + 64]; } __syncthreads(); }
@@ -246,14 +248,14 @@ __global__ void eclat(int *a, int *b, int* temp, int *result, int length) {
 //        if (BLOCKNUM >= 4) shared[tid] += shared[tid + 2];
 //        if (BLOCKNUM >= 2) shared[tid] += shared[tid + 1];
 //    }
-//    for (unsigned int s=THREADNUM/2; s>0; s>>=1) { 
-//        if (tid < s)
-//            shared[tid] += shared[tid + s]; 
-//        __syncthreads(); 
-//    }
-//    if (tid == 0) {
-//        result[bid] = shared[0];
-//    }
+    for (unsigned int s=THREADNUM/2; s>0; s>>=1) { 
+        if (tid < s)
+            shared[tid] += shared[tid + s]; 
+        __syncthreads(); 
+    }
+    if (tid == 0) {
+        result[bid] = shared[0];
+    }
 }
 
 void mineGPU(EClass *eClass, int minSup, int* index, int length){
@@ -309,8 +311,8 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
         //for (auto i : eClass->parents) *out << index[i] << " ";
         //*out << index[item.id] << "(" << item.support << ")" << endl;
         // added by AH
-        //for (auto i : eClass->parents) cout << index[i] << " ";
-        //cout << index[item.id] << "(" << item.support << ")" << endl;
+        for (auto i : eClass->parents) cout << index[i] << " ";
+        cout << index[item.id] << "(" << item.support << ")" << endl;
     }
 }
 
@@ -346,8 +348,8 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 		//for (auto i : eClass->parents) *out << index[i] << " ";
 		//*out << index[item.id] << "(" << item.support << ")" << endl;
         // added by AH
-        //for (auto i : eClass->parents) cout << index[i] << " ";
-        //cout << index[item.id] << "(" << item.support << ")" << endl;
+        for (auto i : eClass->parents) cout << index[i] << " ";
+        cout << index[item.id] << "(" << item.support << ")" << endl;
 	}
 }
 int NumberOfSetBits(int i)
