@@ -16,7 +16,7 @@
 #include "stdio.h"
 
 #define THREADNUM 256
-#define  BLOCKNUM 1
+#define  BLOCKNUM 16
 
 struct ItemDetail{
 	int id;
@@ -106,15 +106,18 @@ int main(int argc, char** argv){
             cout << "There is no device." << endl;
             return false;
         }
+        cout << "cuda Device Count: " << count << endl;
         int i;
         for(i = 0; i < count; i++) {
             cudaDeviceProp prop;
             if(cudaGetDeviceProperties(&prop, i) == cudaSuccess) {
                 if(prop.major >= 1) {
+                    //cout << "use: " << i << endl;
                     break;
                 }
             }
         }
+        i = 3; // remember to remove
         if(i == count) {
             cout << "There is no device supporting CUDA 1.x." << endl;
             return false;
@@ -276,24 +279,29 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
             cudaMalloc((void**) &gpuA, SIZE_OF_INT*length);
             cudaMalloc((void**) &gpuB, SIZE_OF_INT*length);
             cudaMalloc((void**) &gpuTemp, SIZE_OF_INT*length);
-            cudaMalloc((void**) &support, sizeof(int));
+            cudaMalloc((void**) &support, sizeof(int)*BLOCKNUM);
             cudaMemcpy(gpuA, a, SIZE_OF_INT*length,
                     cudaMemcpyHostToDevice);
             cudaMemcpy(gpuB, b, SIZE_OF_INT*length,
                     cudaMemcpyHostToDevice);
-            cudaMemset(support, 0, sizeof(int));
+            cudaMemset(support, 0, sizeof(int)*BLOCKNUM);
             eclat<<< BLOCKNUM, THREADNUM >>>(gpuA, gpuB, gpuTemp, support, length);
             cudaDeviceSynchronize();
             cudaError_t err = cudaGetLastError(); 
             if (err != cudaSuccess) printf("Error: %s\n", cudaGetErrorString(err));
+            int *supp = (int*) malloc(sizeof(int)*BLOCKNUM);
+            cudaMemcpy(supp, support, sizeof(int)*BLOCKNUM, cudaMemcpyDeviceToHost);
             int sup = 0;
-            cudaMemcpy(&sup, support, sizeof(int), cudaMemcpyDeviceToHost);
+            for(int t = 0; t < BLOCKNUM; t++) {
+                sup += supp[t];
+            }
             int* temp = (int*) malloc(SIZE_OF_INT*length);
             cudaMemcpy(temp, gpuTemp, SIZE_OF_INT*length, cudaMemcpyDeviceToHost);
             cudaFree(gpuA);
             cudaFree(gpuB);
             cudaFree(gpuTemp);
             cudaFree(support);
+            
             if (sup >= minSup){
                 children->items.push_back(Item(eClass->items[j].id, temp, sup));
             }
