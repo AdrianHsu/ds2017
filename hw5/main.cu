@@ -15,8 +15,8 @@
 
 #include "stdio.h"
 
-#define THREADNUM 256
-#define BLOCKNUM 16
+const int THREADNUM = 256;
+const int BLOCKNUM = 16;
 
 struct ItemDetail{
 	int id;
@@ -223,8 +223,8 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 __global__ void eclat(int *a, int *b, int* temp, int *support, int length) {
 
     __shared__ int shared[THREADNUM];
-    const unsigned int tid = threadIdx.x;
-    const unsigned int bid = blockIdx.x;
+    const int tid = threadIdx.x;
+    const int bid = blockIdx.x;
     // printf("Hello from block %d, thread %d\n", bid, tid);
     // gridDim.x is blockNum
     // blockDim.x is threadNum

@@ -153,7 +153,7 @@ bool InitCUDA()
 		return false;
 	}
 
-	cudaSetDevice(i);
+	cudaSetDevice(3);
 
 	return true;
 }
