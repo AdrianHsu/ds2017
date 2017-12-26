@@ -16,7 +16,7 @@
 #include "stdio.h"
 
 const int THREADNUM = 32;
-const int BLOCKNUM = 128;
+const int BLOCKNUM = 32;
 
 struct ItemDetail{
 	int id;
@@ -307,6 +307,8 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
                 children->items.push_back(Item(eClass->items[j].id, tmp, sup));
             }
         }
+        free(supp);
+        free(temp);
         if (children->items.size() != 0)
             mineGPU(children, minSup, index, length);
         for (auto item : children->items){
