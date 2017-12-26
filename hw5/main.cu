@@ -15,7 +15,7 @@
 
 #include "stdio.h"
 
-const int THREADNUM = 32;
+const int THREADNUM = 256;
 const int BLOCKNUM = 32;
 
 struct ItemDetail{
@@ -297,6 +297,7 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
         cudaFree(gpuTemp);
         cudaFree(support);
         cudaFree(gpuA); 
+        cudaDeviceReset();
 
         for(int j = i+1; j < size;j++) {
 
