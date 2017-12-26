@@ -303,15 +303,15 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
             int sup = supp[j - i - 1];
             if (sup >= minSup){
                 int* tmp = new int [length];
-                tmp = temp + (j-i-1)*length;
+                memcpy(tmp, temp+(j-i-1)*length, sizeof(int)*length);
                 children->items.push_back(Item(eClass->items[j].id, tmp, sup));
             }
         }
         if (children->items.size() != 0)
             mineGPU(children, minSup, index, length);
-        //for (auto item : children->items){
-        //	delete[] item.db;
-        //}
+        for (auto item : children->items){
+        	delete[] item.db;
+        }
         delete children;
     }
     for (auto item : eClass->items){
