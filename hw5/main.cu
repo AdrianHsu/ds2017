@@ -15,8 +15,8 @@
 
 #include "stdio.h"
 
-const int THREADNUM = 16;
-const int BLOCKNUM = 1;
+const int THREADNUM = 256;
+const int BLOCKNUM = 16;
 
 struct ItemDetail{
 	int id;
@@ -68,7 +68,7 @@ int main(int argc, char** argv){
 	
 
     clock_t tProgramStart = clock();
-	bool cpu = false;
+	bool cpu = true;
 	bool gpu = true;
 	char* inFileName = NULL; // the input file name
 	float supPer = 0;// user specified minimun support percentage
@@ -218,35 +218,39 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 *	length: the length of tidset in integer	
 *
 */
-__global__ void eclat(int *a, int *b, int* temp, int *support, int length) {
 
-    __shared__ int shared[THREADNUM];
+__global__ void eclat(int *a, int *b, int* temp, int *support, int width, int length) {
+
+    __shared__ int shared[BLOCKNUM][THREADNUM];
     const int tid = threadIdx.x;
     const int bid = blockIdx.x;
-    // printf("Hello from block %d, thread %d\n", bid, tid);
-    // gridDim.x is blockNum
-    // blockDim.x is threadNum
+    const int total_iter = width / BLOCKNUM;
 
-    shared[tid] = 0;
-
-    for(int k = bid * THREADNUM + tid; k < length; k += BLOCKNUM*THREADNUM) {
-        temp[k] = a[k] & b[k];
-        int i = temp[k];
-        i = i - ((i >> 1) & 0x55555555);
-        i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
-        shared[tid] += ((((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24);
-        //printf("%d, %d, %d\n", k, tid, length);
-    }
-    //printf("done, %d\n", tid);
-    __syncthreads();
-
-    for (int s = THREADNUM/2; s > 0; s >>= 1) { 
-        if (tid < s)
-            shared[tid] += shared[tid + s]; 
-        __syncthreads(); 
-    }
-    if (tid == 0) {
-        support[bid] = shared[0];
+    for(int i = 0; i < total_iter + 1; i++) {
+        
+        int block_shift = bid + i*BLOCKNUM;
+        if(block_shift >= width)
+            break;
+        shared[bid][tid] = 0;
+        for(int j = tid; j < length; j += THREADNUM) {
+            temp[j + block_shift*length] = a[j] & b[j + block_shift*length];
+            int t = temp[j + block_shift*length];
+            t = t - ((t >> 1) & 0x55555555);
+            t = (t & 0x33333333) + ((t >> 2) & 0x33333333);
+            shared[bid][tid] += ((((t + (t >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24);
+        }
+        
+        __syncthreads();
+        
+        for (int s = THREADNUM/2; s > 0; s >>= 1) { 
+            if (tid < s)
+                shared[bid][tid] += shared[bid][tid + s]; 
+            __syncthreads(); 
+        }
+        if (tid == 0) {
+            support[block_shift] = shared[bid][0];
+        }
+        
     }
 }
 void mineGPU(EClass *eClass, int minSup, int* index, int length){
@@ -254,51 +258,60 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
     int size = eClass->items.size();
 
     for (int i = 0; i < size; i++){
+        //cout << i << "," << size << endl;
         EClass* children = new EClass();
         children->parents = eClass->parents;
         children->parents.push_back(eClass->items[i].id);
+        
+        int width = size - i - 1;
         int *a;
         a = eClass->items[i].db;
         int * gpuA;
-        cudaMalloc((void**) &gpuA, SIZE_OF_INT*length);
-        cudaMemcpy(gpuA, a, SIZE_OF_INT*length,
+        cudaMalloc((void**) &gpuA, sizeof(int)*length);
+        cudaMemcpy(gpuA, a, sizeof(int)*length,
 			cudaMemcpyHostToDevice);
-	for (int j = i + 1; j < size; j++){
-		int* b;
-		b = eClass->items[j].db;
-		int *gpuB, *gpuTemp, *support;
+	
+        int* bs = (int*)malloc(sizeof(int)*length*width);
+	    for(int j = i + 1; j < size; j++){
+	        for(int k = 0; k < length; k++) {
+                int b = eClass->items[j].db[k];
+                bs[(j-i-1)*length + k] = b;
+            }
+        }
+        int *gpuB, *gpuTemp, *support;
+        cudaMalloc((void**) &gpuB, sizeof(int)*length*width);
+        cudaMalloc((void**) &gpuTemp, sizeof(int)*length*width);
+        cudaMalloc((void**) &support, sizeof(int)*width);
+        cudaMemcpy(gpuB, bs, sizeof(int)*length*width,
+                cudaMemcpyHostToDevice);
+        eclat<<< BLOCKNUM, THREADNUM >>>(gpuA, gpuB, gpuTemp, support, width, length);
+        cudaDeviceSynchronize();
+        cudaError_t err = cudaGetLastError(); 
+        if (err != cudaSuccess) printf("Error: %s\n", cudaGetErrorString(err));
 
-		cudaMalloc((void**) &gpuB, SIZE_OF_INT*length);
-		cudaMalloc((void**) &gpuTemp, SIZE_OF_INT*length);
-		cudaMalloc((void**) &support, sizeof(int)*BLOCKNUM);
-		cudaMemcpy(gpuB, b, SIZE_OF_INT*length,
-				cudaMemcpyHostToDevice);
-		eclat<<< BLOCKNUM, THREADNUM >>>(gpuA, gpuB, gpuTemp, support, length);
-		//cudaDeviceSynchronize();
-		cudaError_t err = cudaGetLastError(); 
-		if (err != cudaSuccess) printf("Error: %s\n", cudaGetErrorString(err));
-		int *supp = (int*) malloc(sizeof(int)*BLOCKNUM);
-		cudaMemcpy(supp, support, sizeof(int)*BLOCKNUM, cudaMemcpyDeviceToHost);
-		int sup = 0;
-		for(int t = 0; t < BLOCKNUM; t++) {
-			sup += supp[t];
-		}
-		if (sup >= minSup){
-			int* temp = (int*) malloc(SIZE_OF_INT*length);
-			cudaMemcpy(temp, gpuTemp, SIZE_OF_INT*length, cudaMemcpyDeviceToHost);
-			children->items.push_back(Item(eClass->items[j].id, temp, sup));
-		}
-		cudaFree(gpuB);
-		cudaFree(gpuTemp);
-		cudaFree(support);
-	}
-	cudaFree(gpuA); 
-        
+        int *supp = (int*) malloc(sizeof(int)*width);
+        cudaMemcpy(supp, support, sizeof(int)*width, cudaMemcpyDeviceToHost);
+        int* temp = (int*) malloc(sizeof(int)*length*width);
+        cudaMemcpy(temp, gpuTemp, sizeof(int)*width*length, cudaMemcpyDeviceToHost);
+        cudaFree(gpuB);
+        cudaFree(gpuTemp);
+        cudaFree(support);
+        cudaFree(gpuA); 
+        for(int j = i+1; j < size;j++) {
+
+            int sup = supp[j - i - 1];
+            if (sup >= minSup){
+                int* tmp = new int [length];
+                tmp = temp + (j-i-1)*length;
+                children->items.push_back(Item(eClass->items[j].id, tmp, sup));
+            }
+        }
         if (children->items.size() != 0)
             mineGPU(children, minSup, index, length);
-        for (auto item : children->items){
-            delete[] item.db;
-        }
+        
+        //for (auto item : children->items){
+        //    delete [] item.db;
+        //}
     }
     for (auto item : eClass->items){
         //for (auto i : eClass->parents) *out << index[i] << " ";
@@ -325,7 +338,8 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 				temp[k] = a[k] & b[k];
 				support += NumberOfSetBits(temp[k]);
 			}
-			if (support >= minSup){
+            //cout << j << "," << support << endl;
+            if (support >= minSup){
 				children->items.push_back(Item(eClass->items[j].id, temp, support));
 			}
 			else delete[] temp;
@@ -341,8 +355,8 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 		//for (auto i : eClass->parents) *out << index[i] << " ";
 		//*out << index[item.id] << "(" << item.support << ")" << endl;
         // added by AH
-        for (auto i : eClass->parents) cout << index[i] << " ";
-        cout << index[item.id] << "(" << item.support << ")" << endl;
+        //for (auto i : eClass->parents) cout << index[i] << " ";
+        //cout << index[item.id] << "(" << item.support << ")" << endl;
 	}
 }
 int NumberOfSetBits(int i)
