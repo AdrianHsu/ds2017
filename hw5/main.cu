@@ -68,7 +68,7 @@ int main(int argc, char** argv){
 	
 
     clock_t tProgramStart = clock();
-	bool cpu = true;
+	bool cpu = false;
 	bool gpu = true;
 	char* inFileName = NULL; // the input file name
 	float supPer = 0;// user specified minimun support percentage
@@ -119,7 +119,7 @@ int main(int argc, char** argv){
                 }
             }
         }
-        //i = 3; // remember to remove
+        i = 2; // remember to remove
         if(i == count) {
             cout << "There is no device supporting CUDA 1.x." << endl;
             return false;
@@ -314,8 +314,8 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
         //}
     }
     for (auto item : eClass->items){
-        //for (auto i : eClass->parents) *out << index[i] << " ";
-        //*out << index[item.id] << "(" << item.support << ")" << endl;
+        for (auto i : eClass->parents) *out << index[i] << " ";
+        *out << index[item.id] << "(" << item.support << ")" << endl;
         // added by AH
         for (auto i : eClass->parents) cout << index[i] << " ";
         cout << index[item.id] << "(" << item.support << ")" << endl;
