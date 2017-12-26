@@ -262,18 +262,18 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
         EClass* children = new EClass();
         children->parents = eClass->parents;
         children->parents.push_back(eClass->items[i].id);
-        
+
         int width = size - i - 1;
         int *a;
         a = eClass->items[i].db;
         int * gpuA;
         cudaMalloc((void**) &gpuA, sizeof(int)*length);
         cudaMemcpy(gpuA, a, sizeof(int)*length,
-			cudaMemcpyHostToDevice);
-	
+                cudaMemcpyHostToDevice);
+
         int* bs = (int*)malloc(sizeof(int)*length*width);
-	    for(int j = i + 1; j < size; j++){
-	        for(int k = 0; k < length; k++) {
+        for(int j = i + 1; j < size; j++){
+            for(int k = 0; k < length; k++) {
                 int b = eClass->items[j].db[k];
                 bs[(j-i-1)*length + k] = b;
             }
@@ -297,6 +297,7 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
         cudaFree(gpuTemp);
         cudaFree(support);
         cudaFree(gpuA); 
+
         for(int j = i+1; j < size;j++) {
 
             int sup = supp[j - i - 1];
@@ -308,10 +309,10 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
         }
         if (children->items.size() != 0)
             mineGPU(children, minSup, index, length);
-		//for (auto item : children->items){
-		//	delete[] item.db;
-		//}
-		delete children;
+        //for (auto item : children->items){
+        //	delete[] item.db;
+        //}
+        delete children;
     }
     for (auto item : eClass->items){
         for (auto i : eClass->parents) *out << index[i] << " ";
