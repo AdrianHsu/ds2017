@@ -15,8 +15,8 @@
 
 #include "stdio.h"
 
-const int THREADNUM = 256;
-const int BLOCKNUM = 16;
+const int THREADNUM = 32;
+const int BLOCKNUM = 128;
 
 struct ItemDetail{
 	int id;
@@ -119,7 +119,7 @@ int main(int argc, char** argv){
                 }
             }
         }
-        i = 2; // remember to remove
+        //i = 2; // remember to remove
         if(i == count) {
             cout << "There is no device supporting CUDA 1.x." << endl;
             return false;
@@ -308,10 +308,10 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
         }
         if (children->items.size() != 0)
             mineGPU(children, minSup, index, length);
-        
-        //for (auto item : children->items){
-        //    delete [] item.db;
-        //}
+		//for (auto item : children->items){
+		//	delete[] item.db;
+		//}
+		delete children;
     }
     for (auto item : eClass->items){
         for (auto i : eClass->parents) *out << index[i] << " ";
@@ -352,11 +352,11 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 		delete children;
 	}
 	for (auto item : eClass->items){
-		//for (auto i : eClass->parents) *out << index[i] << " ";
-		//*out << index[item.id] << "(" << item.support << ")" << endl;
+		for (auto i : eClass->parents) *out << index[i] << " ";
+		*out << index[item.id] << "(" << item.support << ")" << endl;
         // added by AH
-        //for (auto i : eClass->parents) cout << index[i] << " ";
-        //cout << index[item.id] << "(" << item.support << ")" << endl;
+        for (auto i : eClass->parents) cout << index[i] << " ";
+        cout << index[item.id] << "(" << item.support << ")" << endl;
 	}
 }
 int NumberOfSetBits(int i)
