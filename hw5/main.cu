@@ -148,6 +148,35 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
             temp += c - 48;
         }
     }
+    
+    //remove the item without minimun support
+    int minSup = (*tNum)*supPer + 1;
+    for (map<int, ItemDetail>::iterator it = mapIndex.begin(); it != mapIndex.end();){
+        if (it->second.tid.size() < minSup) {
+            map<int, ItemDetail>::iterator toErase = it;
+            ++it;
+            mapIndex.erase(toErase);
+        }
+        else ++it;
+    }
+
+    // convert the tidset into bit vector and store in db, build index
+    int bitLength = (*tNum) + SIZE_OF_INT - (*tNum) % SIZE_OF_INT;
+    temp = 0;
+    index = new int[mapIndex.size()];
+    for (map<int, ItemDetail>::iterator it = mapIndex.begin(); it != mapIndex.end(); ++it){
+        it->second.id = temp;
+        index[temp] = it->second.realId;
+        //int * bitVector = (db + temp * bitLength / SIZE_OF_INT);
+        int* bitVector = new int[bitLength / SIZE_OF_INT];
+        memset(bitVector, 0, sizeof(int)* bitLength / SIZE_OF_INT);
+        for (int i = it->second.tid.size() - 1; i >= 0; i--){
+            bitVector[it->second.tid[i] / SIZE_OF_INT] |= Bit32Table[it->second.tid[i] % SIZE_OF_INT];
+        }
+        (*root).items.push_back(Item(temp, bitVector, it->second.tid.size()));
+        temp++;
+    }
+    *iNum = mapIndex.size();
 }
 
 /**
