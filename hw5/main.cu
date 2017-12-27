@@ -68,8 +68,8 @@ int main(int argc, char** argv){
 	
 
     clock_t tProgramStart = clock();
-	bool cpu = true;
-	bool gpu = false;
+	bool cpu = false;
+	bool gpu = true;
 	char* inFileName = NULL; // the input file name
 	float supPer = 0;// user specified minimun support percentage
 	if ( argc != 4){//input argument wrong, print usage, return error;
