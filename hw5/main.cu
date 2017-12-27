@@ -219,9 +219,9 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 *
 */
 
-__global__ void eclat(int *a, int *b, int* temp, int *support, int width, int length) {
+__global__ static void eclat(int *a, int *b, int* temp, int *support, int width, int length) {
 
-    __shared__ int shared[BLOCKNUM][THREADNUM];
+    __shared__ static int shared[BLOCKNUM][THREADNUM];
     const int tid = threadIdx.x;
     const int bid = blockIdx.x;
     const int total_iter = width / BLOCKNUM;
@@ -271,7 +271,7 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
         cudaMemcpy(gpuA, a, sizeof(int)*length,
                 cudaMemcpyHostToDevice);
 
-        int* bs = (int*)malloc(sizeof(int)*length*width);
+        int* bs = new int [sizeof(int)*length*width];
         for(int j = i + 1; j < size; j++){
             for(int k = 0; k < length; k++) {
                 int b = eClass->items[j].db[k];
@@ -284,21 +284,21 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
         cudaMalloc((void**) &support, sizeof(int)*width);
         cudaMemcpy(gpuB, bs, sizeof(int)*length*width,
                 cudaMemcpyHostToDevice);
+        free(bs); //!!
         eclat<<< BLOCKNUM, THREADNUM >>>(gpuA, gpuB, gpuTemp, support, width, length);
-        cudaDeviceSynchronize();
-        cudaError_t err = cudaGetLastError(); 
-        if (err != cudaSuccess) printf("Error: %s\n", cudaGetErrorString(err));
+        //cudaDeviceSynchronize();
+        //cudaError_t err = cudaGetLastError(); 
+        //if (err != cudaSuccess) printf("Error: %s\n", cudaGetErrorString(err));
 
-        int *supp = (int*) malloc(sizeof(int)*width);
+        int *supp = new int [sizeof(int)*width];
         cudaMemcpy(supp, support, sizeof(int)*width, cudaMemcpyDeviceToHost);
-        int* temp = (int*) malloc(sizeof(int)*length*width);
+        int* temp = new int [sizeof(int)*length*width];
         cudaMemcpy(temp, gpuTemp, sizeof(int)*width*length, cudaMemcpyDeviceToHost);
+         
         cudaFree(gpuB);
         cudaFree(gpuTemp);
         cudaFree(support);
-        cudaFree(gpuA); 
-        cudaDeviceReset();
-
+        cudaFree(gpuA);
         for(int j = i+1; j < size;j++) {
 
             int sup = supp[j - i - 1];
@@ -306,6 +306,8 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
                 int* tmp = new int [length];
                 memcpy(tmp, temp+(j-i-1)*length, sizeof(int)*length);
                 children->items.push_back(Item(eClass->items[j].id, tmp, sup));
+            } else {
+                // delete [] temp;
             }
         }
         free(supp);
