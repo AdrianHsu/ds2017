@@ -7,7 +7,6 @@ do
     then
         c="0.001"
     fi
-    echo $c
-    ./fim.out retail.txt ${c} result/${y}${1}${2}.txt &
+    ./fim.out retail.txt ${c} result/${y}${1}${2}.txt
 done
 

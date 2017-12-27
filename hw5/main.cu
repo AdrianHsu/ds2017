@@ -89,6 +89,7 @@ int main(int argc, char** argv){
 	cout << "minSup = " << supPer << endl;
 	cout << "outfile = " << argv[3] << endl;
     *out << "BLOCKNUM = " << BLOCKNUM << ", THREADNUM = " << THREADNUM << endl;
+    cout << "BLOCKNUM = " << BLOCKNUM << ", THREADNUM = " << THREADNUM << endl;
 
 	FILE *inputFile; // input file pointer
 	int tNumbers = 0; // Transaction numbers
