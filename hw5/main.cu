@@ -15,8 +15,8 @@
 
 #include "stdio.h"
 
-const int THREADNUM = 32;
-const int BLOCKNUM = 128;
+const int BLOCKNUM = 16;
+const int THREADNUM = 16;
 
 struct ItemDetail{
 	int id;
@@ -85,7 +85,11 @@ int main(int argc, char** argv){
 	out = &ofs;
 
 	cout << "inFileName = " << inFileName << endl;
+	*out << "minSup = " << supPer << endl;
 	cout << "minSup = " << supPer << endl;
+	cout << "outfile = " << argv[3] << endl;
+    *out << "BLOCKNUM = " << BLOCKNUM << endl;
+    *out << "THREADNUM = " << THREADNUM << endl;
 
 	FILE *inputFile; // input file pointer
 	int tNumbers = 0; // Transaction numbers
@@ -108,27 +112,27 @@ int main(int argc, char** argv){
             cout << "There is no device." << endl;
             return false;
         }
-        cout << "cuda Device Count: " << count << endl;
+        //cout << "cuda Device Count: " << count << endl;
         int i;
         for(i = 0; i < count; i++) {
             cudaDeviceProp prop;
             if(cudaGetDeviceProperties(&prop, i) == cudaSuccess) {
                 if(prop.major >= 1) {
-                    printf("Using device %d: %s \n", i, prop.name);
+                    //printf("Using device %d: %s \n", i, prop.name);
                     break;
                 }
             }
         }
-        //i = 2; // remember to remove
         if(i == count) {
             cout << "There is no device supporting CUDA 1.x." << endl;
             return false;
         }
         cudaSetDevice(i);
-        cout << "cudaSetDevice: " << i << endl;
+        //cout << "cudaSetDevice: " << i << endl;
         
         mineGPU(root, minSup, index, length);
-		cout << "Time on GPU Mining: " << (double)(clock() - tGPUMiningStart) / CLOCKS_PER_SEC << endl;
+		*out << "Time on GPU Mining: " << (double)(clock() - tGPUMiningStart) / CLOCKS_PER_SEC << endl;
+		//cout << "Time on GPU Mining: " << (double)(clock() - tGPUMiningStart) / CLOCKS_PER_SEC << endl;
 	}
 	if (cpu){
 		clock_t tCPUMiningStart = clock();
@@ -323,8 +327,8 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
         for (auto i : eClass->parents) *out << index[i] << " ";
         *out << index[item.id] << "(" << item.support << ")" << endl;
         // added by AH
-        for (auto i : eClass->parents) cout << index[i] << " ";
-        cout << index[item.id] << "(" << item.support << ")" << endl;
+        //for (auto i : eClass->parents) cout << index[i] << " ";
+        //cout << index[item.id] << "(" << item.support << ")" << endl;
     }
 }
 
