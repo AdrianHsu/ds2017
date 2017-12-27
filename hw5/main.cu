@@ -15,8 +15,8 @@
 
 #include "stdio.h"
 
-const int THREADNUM = 256;
-const int BLOCKNUM = 32;
+const int THREADNUM = 32;
+const int BLOCKNUM = 128;
 
 struct ItemDetail{
 	int id;
