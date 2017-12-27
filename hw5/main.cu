@@ -68,8 +68,8 @@ int main(int argc, char** argv){
 	
 
     clock_t tProgramStart = clock();
-	bool cpu = false;
-	bool gpu = true;
+	bool cpu = true;
+	bool gpu = false;
 	char* inFileName = NULL; // the input file name
 	float supPer = 0;// user specified minimun support percentage
 	if ( argc != 4){//input argument wrong, print usage, return error;
@@ -88,8 +88,7 @@ int main(int argc, char** argv){
 	*out << "minSup = " << supPer << endl;
 	cout << "minSup = " << supPer << endl;
 	cout << "outfile = " << argv[3] << endl;
-    *out << "BLOCKNUM = " << BLOCKNUM << endl;
-    *out << "THREADNUM = " << THREADNUM << endl;
+    *out << "BLOCKNUM = " << BLOCKNUM << ", THREADNUM = " << THREADNUM << endl;
 
 	FILE *inputFile; // input file pointer
 	int tNumbers = 0; // Transaction numbers
@@ -132,11 +131,14 @@ int main(int argc, char** argv){
         
         mineGPU(root, minSup, index, length);
 		*out << "Time on GPU Mining: " << (double)(clock() - tGPUMiningStart) / CLOCKS_PER_SEC << endl;
-		//cout << "Time on GPU Mining: " << (double)(clock() - tGPUMiningStart) / CLOCKS_PER_SEC << endl;
+		*out << (double)(clock() - tGPUMiningStart) / CLOCKS_PER_SEC << endl;
+		cout << "Time on GPU Mining: " << (double)(clock() - tGPUMiningStart) / CLOCKS_PER_SEC << endl;
 	}
 	if (cpu){
 		clock_t tCPUMiningStart = clock();
 		mineCPU(root, minSup, index, length);
+		*out << "Time on CPU Mining: " << (double)(clock() - tCPUMiningStart) / CLOCKS_PER_SEC << endl;
+		*out << (double)(clock() - tCPUMiningStart) / CLOCKS_PER_SEC << endl;
 		cout << "Time on CPU Mining: " << (double)(clock() - tCPUMiningStart) / CLOCKS_PER_SEC << endl;
 	}
 	for (auto item : root->items){
@@ -222,6 +224,12 @@ void ReadInput(FILE *inputFile, int *tNum, int *iNum, int *&index, float supPer,
 *	length: the length of tidset in integer	
 *
 */
+__device__ static int GPUNumberOfSetBits(int i)
+{
+        i = i - ((i >> 1) & 0x55555555);
+        i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+        return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+}
 
 __global__ static void eclat(int *a, int *b, int* temp, int *support, int width, int length) {
 
@@ -239,9 +247,7 @@ __global__ static void eclat(int *a, int *b, int* temp, int *support, int width,
         for(int j = tid; j < length; j += THREADNUM) {
             temp[j + block_shift*length] = a[j] & b[j + block_shift*length];
             int t = temp[j + block_shift*length];
-            t = t - ((t >> 1) & 0x55555555);
-            t = (t & 0x33333333) + ((t >> 2) & 0x33333333);
-            shared[bid][tid] += ((((t + (t >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24);
+            shared[bid][tid] += GPUNumberOfSetBits(t);
         }
         
         __syncthreads();
@@ -277,10 +283,7 @@ void mineGPU(EClass *eClass, int minSup, int* index, int length){
 
         int* bs = new int [sizeof(int)*length*width];
         for(int j = i + 1; j < size; j++){
-            for(int k = 0; k < length; k++) {
-                int b = eClass->items[j].db[k];
-                bs[(j-i-1)*length + k] = b;
-            }
+            memcpy(bs + (j-i-1)*length, eClass->items[j].db, sizeof(int)*length);
         }
         int *gpuB, *gpuTemp, *support;
         cudaMalloc((void**) &gpuB, sizeof(int)*length*width);
@@ -365,8 +368,8 @@ void mineCPU(EClass *eClass, int minSup, int* index, int length){
 		for (auto i : eClass->parents) *out << index[i] << " ";
 		*out << index[item.id] << "(" << item.support << ")" << endl;
         // added by AH
-        for (auto i : eClass->parents) cout << index[i] << " ";
-        cout << index[item.id] << "(" << item.support << ")" << endl;
+        //for (auto i : eClass->parents) cout << index[i] << " ";
+        //cout << index[item.id] << "(" << item.support << ")" << endl;
 	}
 }
 int NumberOfSetBits(int i)
